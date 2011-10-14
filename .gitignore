@@ -1,0 +1,8 @@
+*~
+*.o
+.*/
+.lock*
+.windows
+build/
+dist/
+waf*/
