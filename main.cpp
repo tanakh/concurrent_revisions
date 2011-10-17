@@ -1,21 +1,21 @@
 #include "concurrent-revisions.h"
 #include <iostream>
 
+#include <gtest/gtest.h>
+
 using namespace std;
 using namespace concurrent_revisions;
 
-int main(int argc, char *argv[])
+TEST(gtest, simple)
 {
   versioned<int> v;
 
   revision *r = fork([&]{
-      v.set(1);
+      v.set(2);
     });
+  v.set(1);
 
-  v.set(2);
-  cout << v.get() << endl;
+  EXPECT_EQ(1, v.get());
   join(r);
-  cout << v.get() << endl;
-
-  return 0;
+  EXPECT_EQ(2, v.get());
 }

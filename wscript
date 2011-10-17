@@ -6,33 +6,43 @@ out = 'build'
 
 def options(opt):
   opt.load('compiler_cxx')
+  opt.load('unittest_gtest')
 
 def configure(conf):
   conf.load('compiler_cxx')
+  conf.load('unittest_gtest')
 
   if conf.env.CXX == ['clang++']:
     conf.env.append_unique(
       'CXXFLAGS',
-      ['-std=c++0x', '-stdlib=libc++', '-D_GLIBCXX_PARALLEL']
+      ['-std=c++0x', '-stdlib=libc++']
       )
     # conf.env.LINK_CXX = ['llvm-ld']
     conf.env.append_unique(
       'LINKFLAGS',
-      ['-lc++', '-O4']
+      ['-lc++', '-O2']
       )
   else:
     conf.env.append_unique(
       'CXXFLAGS',
-      ['-std=c++0x', '-Wall', '-D_GLIBCXX_PARALLEL']
+      ['-std=c++0x', '-Wall', '-O0', '-g']
       )
     conf.env.append_unique(
       'LINKFLAGS',
-      ['-lgomp']
+      []
       )
 
 def build(bld):
-  bld.program(
-    source = 'main.cpp concurrent-revisions.cpp',
+  bld.shlib(
+    source = 'concurrent-revisions.cpp',
     includes = '.',
-    target = 'test'
+    target = 'concurrent-revisions'
+    )
+
+  bld.program(
+    features = 'gtest',
+    source = 'main.cpp',
+    includes = '.',
+    target = 'test',
+    use = 'concurrent-revisions'
     )
