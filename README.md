@@ -1,6 +1,6 @@
 # Concurrent Revisions in C++ #
 
-WARNING! This program is in early stage of developing. You should not use.
+WARNING! This library is in early stage of developing. You should not use.
 
 # About
 
@@ -10,7 +10,7 @@ comming soon!
 
     $ ./waf configure
     $ ./waf build --check
-    $ ./waf install
+    $ sudo ./waf install
 
 # Usage
 
