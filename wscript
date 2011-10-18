@@ -1,4 +1,4 @@
-APPNAME = 'concurrent-revisions'
+APPNAME = 'concurrent_revisions'
 VERSION = '0.1.0'
 
 top = '.'
@@ -34,15 +34,15 @@ def configure(conf):
 
 def build(bld):
   bld.shlib(
-    source = 'concurrent-revisions.cpp',
+    source = 'concurrent_revisions.cpp',
     includes = '.',
-    target = 'concurrent-revisions'
+    target = 'concurrent_revisions'
     )
 
   bld.program(
     features = 'gtest',
-    source = 'main.cpp',
+    source = 'test.cpp',
     includes = '.',
     target = 'test',
-    use = 'concurrent-revisions'
+    use = 'concurrent_revisions'
     )

@@ -1,4 +1,4 @@
-#include "concurrent-revisions.h"
+#include "concurrent_revisions.h"
 #include <iostream>
 
 #include <gtest/gtest.h>
@@ -11,6 +11,7 @@ TEST(gtest, simple)
   versioned<int> v;
 
   revision *r = fork([&]{
+      cout << revision::current_revision << endl;
       v.set(2);
     });
   v.set(1);

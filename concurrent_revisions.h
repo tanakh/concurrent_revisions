@@ -1,8 +1,10 @@
 #pragma once
 
 #include <thread>
-#include <unordered_map>
 #include <vector>
+#include <iostream>
+
+#include "concurrent_intmap.h"
 
 namespace concurrent_revisions {
 
@@ -35,7 +37,7 @@ public:
   const T &get(revision &r) const;
   void set(revision &r, const T & v);
 
-  std::unordered_map<int, T> versions_;
+  concurrent_intmap<T> versions_;
 };
 
 class segment {
@@ -88,17 +90,17 @@ template <class T>
 inline const T &versioned<T>::get(revision &r) const
 {
   segment *s = r.current_;
-  while(versions_.count(s->version_) == 0)
+  while(!versions_.has(s->version_))
     s = s->parent_;
-  return versions_.find(s->version_)->second;
+  return versions_.get(s->version_);
 }
 
 template <class T>
 inline void versioned<T>::set(revision &r, const T &v)
 {
-  if (versions_.count(r.current_->version_) == 0)
+  if (!versions_.has(r.current_->version_))
     r.current_->written_.push_back(this);
-  versions_[r.current_->version_] = v;
+  versions_.set(r.current_->version_, v);
 }
 
 template <class T>
@@ -159,12 +161,14 @@ inline revision::revision(segment *root, segment *current)
 template <class F>
 inline revision *revision::fork(F action)
 {
+  std::cout << "forking" << std::endl;
   revision *r = new revision(current_, new segment(current_));
   current_->release();
   current_ = new segment(current_);
   task_ = new std::thread([&]{
       revision *previous = current_revision;
       current_revision = r;
+      std::cout << "* " << current_revision << std::endl;
       try {
         action();
       } catch(...) {
@@ -195,6 +199,10 @@ inline void revision::join(revision *join)
 template <typename F>
 inline revision *fork(F action)
 {
+  if (!revision::current_revision) {
+    revision::current_revision = new revision(NULL, new segment(NULL));
+  }
+
   return revision::current_revision->fork(action);
 }
 
