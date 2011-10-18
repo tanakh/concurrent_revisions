@@ -12,7 +12,40 @@ namespace concurrent_revisions {
 
 class segment;
 class revision_impl;
-template <class T> class versioned;
+template <class T, class Merge> class versioned;
+
+template <class T>
+class default_merger {
+public:
+  const T &operator()(const T &main, const T &join, const T &root) const {
+    return join;
+  }
+};
+
+template <class T>
+class add_merger {
+public:
+  T operator()(const T &main, const T &join, const T &root) const {
+    return main + join - root;
+  }
+};
+
+template <class T>
+class max_merger {
+public:
+  const T &operator()(const T &main, const T &join, const T &root) const {
+    return std::max(main, join);
+  }
+};
+
+template <class T>
+class min_merger {
+public:
+  const T &operator()(const T &main, const T &join, const T &root) const {
+    return std::min(main, join);
+  }
+};
+
 
 namespace detail {
 
@@ -27,7 +60,7 @@ public:
 
 } // namespace detail
 
-template <class T>
+template <class T, class Merge>
 class versioned_val : public detail::versioned_any {
 public:
   versioned_val();
@@ -51,33 +84,31 @@ public:
   const T &get(revision_impl &r) const;
   void set(revision_impl &r, const T & v);
 
-  std::shared_ptr<versioned_val<T> > q_;
+  std::shared_ptr<versioned_val<T, Merge> > q_;
   concurrent_intmap<T> versions_;
+  Merge mf_;
 };
 
-template <class T>
+template <class T, class Merge = default_merger<T> >
 class versioned {
 public:
   versioned()
-    : p_ (new versioned_val<T>()) {
+    : p_ (new versioned_val<T, Merge>()) {
     p_->q_ = p_;
     p_->set(T());
   }
 
-  template <class U>
-  versioned &operator=(const versioned<U> &r) {
-    p_->set((U)r);
+  versioned &operator=(const versioned<T, Merge> &r) {
+    p_->set((T)r);
     return *this;
   }
 
-  template <class U>
-  versioned &operator=(versioned<U> &r) {
-    p_->set((U)r);
+  versioned &operator=(versioned<T, Merge> &r) {
+    p_->set((T)r);
     return *this;
   }
 
-  template <class U>
-  versioned &operator=(const U &v) {
+  versioned &operator=(const T &v) {
     p_->set(v);
     return *this;
   }
@@ -90,7 +121,7 @@ public:
     p_->dump();
   }
   
-  std::shared_ptr<versioned_val<T> > p_;
+  std::shared_ptr<versioned_val<T, Merge> > p_;
 };
 
 class segment {
@@ -127,25 +158,25 @@ public:
 
 // implementation
 
-template <class T>
-inline versioned_val<T>::versioned_val()
+template <class T, class Merge>
+inline versioned_val<T, Merge>::versioned_val()
 {
 }
 
-template <class T>
-inline const T &versioned_val<T>::get() const
+template <class T, class Merge>
+inline const T &versioned_val<T, Merge>::get() const
 {
   return get(*revision_impl::current_revision);
 }
 
-template <class T>
-inline void versioned_val<T>::set(const T &v)
+template <class T, class Merge>
+inline void versioned_val<T, Merge>::set(const T &v)
 {
   set(*revision_impl::current_revision, v);
 }
 
-template <class T>
-inline const T &versioned_val<T>::get(revision_impl &r) const
+template <class T, class Merge>
+inline const T &versioned_val<T, Merge>::get(revision_impl &r) const
 {
   segment *s = r.current_;
   while(!versions_.has(s->version_)) {
@@ -154,30 +185,30 @@ inline const T &versioned_val<T>::get(revision_impl &r) const
   return versions_.get(s->version_);
 }
 
-template <class T>
-inline void versioned_val<T>::set(revision_impl &r, const T &v)
+template <class T, class Merge>
+inline void versioned_val<T, Merge>::set(revision_impl &r, const T &v)
 {
   if (!versions_.has(r.current_->version_))
     r.current_->written_.push_back(this->ptr());
   versions_.set(r.current_->version_, v);
 }
 
-template <class T>
-inline void versioned_val<T>::release(segment &s)
+template <class T, class Merge>
+inline void versioned_val<T, Merge>::release(segment &s)
 {
   versions_.erase(s.version_);
 }
 
-template <class T>
-inline void versioned_val<T>::collapse(revision_impl &main, segment &parent)
+template <class T, class Merge>
+inline void versioned_val<T, Merge>::collapse(revision_impl &main, segment &parent)
 {
   if (!versions_.has(main.current_->version_))
     set(main, versions_.get(parent.version_));
   versions_.erase(parent.version_);
 }
 
-template <class T>
-inline void versioned_val<T>::merge(revision_impl &main, revision_impl &join_rev, segment &join)
+template <class T, class Merge>
+inline void versioned_val<T, Merge>::merge(revision_impl &main, revision_impl &join_rev, segment &join)
 {
   puts("merge now!!!");
   segment *s = join_rev.current_;
@@ -185,7 +216,8 @@ inline void versioned_val<T>::merge(revision_impl &main, revision_impl &join_rev
     s = s->parent_;
   if (s == &join) {
     std::cout << "merging " << versions_.get(join.version_) << std::endl;
-    set(main, versions_.get(join.version_));
+    //set(main, versions_.get(join.version_));
+    set(main, mf_(get(), versions_.get(join.version_), versions_.get(join_rev.root_->version_)));
   }
 }
 
