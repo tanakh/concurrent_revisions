@@ -4,12 +4,12 @@ namespace concurrent_revisions {
 
 std::atomic_int segment::version_count_;
 
-__thread revision *revision::current_revision = NULL;
+__thread revision_impl *revision_impl::current_revision = NULL;
 
 class initializer {
 public:
   initializer() {
-    revision *r = fork([]{});
+    revision r = fork([]{});
     join(r);
   }
 } init ;

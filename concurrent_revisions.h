@@ -11,7 +11,7 @@
 namespace concurrent_revisions {
 
 class segment;
-class revision;
+class revision_impl;
 template <class T> class versioned;
 
 namespace detail {
@@ -20,8 +20,8 @@ class versioned_any {
 public:
   virtual ~versioned_any() {};
   virtual void release(segment &s) = 0;
-  virtual void collapse(revision &main, segment &parent) = 0;
-  virtual void merge(revision &main, revision &join_rev, segment &join) = 0;
+  virtual void collapse(revision_impl &main, segment &parent) = 0;
+  virtual void merge(revision_impl &main, revision_impl &join_rev, segment &join) = 0;
   virtual std::shared_ptr<versioned_any> ptr() = 0;
 };
 
@@ -30,12 +30,14 @@ public:
 template <class T>
 class versioned_val : public detail::versioned_any {
 public:
+  versioned_val();
+
   const T &get() const;
   void set(const T &v);
 
   void release(segment &s);
-  void collapse(revision &main, segment &parent);
-  void merge(revision &main, revision &join_rev, segment &join);
+  void collapse(revision_impl &main, segment &parent);
+  void merge(revision_impl &main, revision_impl &join_rev, segment &join);
 
   std::shared_ptr<detail::versioned_any> ptr() {
     return q_;
@@ -46,8 +48,8 @@ public:
   }
 
   //private:
-  const T &get(revision &r) const;
-  void set(revision &r, const T & v);
+  const T &get(revision_impl &r) const;
+  void set(revision_impl &r, const T & v);
 
   std::shared_ptr<versioned_val<T> > q_;
   concurrent_intmap<T> versions_;
@@ -59,6 +61,7 @@ public:
   versioned()
     : p_ (new versioned_val<T>()) {
     p_->q_ = p_;
+    p_->set(T());
   }
 
   template <class U>
@@ -95,7 +98,7 @@ public:
   segment(segment *parent);
 
   void release();
-  void collapse(revision &main);
+  void collapse(revision_impl &main);
 
   //private:
   std::atomic_int version_;
@@ -105,39 +108,44 @@ public:
   static std::atomic_int version_count_;
 };
 
-class revision {
+class revision_impl {
 public:
-  revision(segment *root, segment *current);
+  revision_impl(segment *root, segment *current);
 
   template <class F>
-  revision *fork(F action);
+  revision_impl *fork(F action);
 
-  void join(revision *r);
+  void join(revision_impl *r);
 
   //private:
   segment *root_;
   segment *current_;
   std::thread *thread_;
 
-  static __thread revision *current_revision;
+  static __thread revision_impl *current_revision;
 };
 
 // implementation
 
 template <class T>
+inline versioned_val<T>::versioned_val()
+{
+}
+
+template <class T>
 inline const T &versioned_val<T>::get() const
 {
-  return get(*revision::current_revision);
+  return get(*revision_impl::current_revision);
 }
 
 template <class T>
 inline void versioned_val<T>::set(const T &v)
 {
-  set(*revision::current_revision, v);
+  set(*revision_impl::current_revision, v);
 }
 
 template <class T>
-inline const T &versioned_val<T>::get(revision &r) const
+inline const T &versioned_val<T>::get(revision_impl &r) const
 {
   segment *s = r.current_;
   while(!versions_.has(s->version_)) {
@@ -147,7 +155,7 @@ inline const T &versioned_val<T>::get(revision &r) const
 }
 
 template <class T>
-inline void versioned_val<T>::set(revision &r, const T &v)
+inline void versioned_val<T>::set(revision_impl &r, const T &v)
 {
   if (!versions_.has(r.current_->version_))
     r.current_->written_.push_back(this->ptr());
@@ -161,7 +169,7 @@ inline void versioned_val<T>::release(segment &s)
 }
 
 template <class T>
-inline void versioned_val<T>::collapse(revision &main, segment &parent)
+inline void versioned_val<T>::collapse(revision_impl &main, segment &parent)
 {
   if (!versions_.has(main.current_->version_))
     set(main, versions_.get(parent.version_));
@@ -169,7 +177,7 @@ inline void versioned_val<T>::collapse(revision &main, segment &parent)
 }
 
 template <class T>
-inline void versioned_val<T>::merge(revision &main, revision &join_rev, segment &join)
+inline void versioned_val<T>::merge(revision_impl &main, revision_impl &join_rev, segment &join)
 {
   puts("merge now!!!");
   segment *s = join_rev.current_;
@@ -200,10 +208,10 @@ inline void segment::release()
   }
 }
 
-inline void segment::collapse(revision &main)
+inline void segment::collapse(revision_impl &main)
 {
   // assert: main.current == this
-  while(parent_ && (parent_ != main.root_ || parent_->refcount_ == 1)) {
+  while(parent_ && (parent_ != main.root_ && parent_->refcount_ == 1)) {
     for (size_t i = 0; i < parent_->written_.size(); ++i)
       parent_->written_[i]->collapse(main, *parent_);
     parent_ = parent_->parent_;
@@ -212,24 +220,24 @@ inline void segment::collapse(revision &main)
 
 //-----
 
-inline revision::revision(segment *root, segment *current)
+inline revision_impl::revision_impl(segment *root, segment *current)
   : root_(root)
   , current_(current)
 {
 }
 
 template <class F>
-inline revision *revision::fork(F action)
+inline revision_impl *revision_impl::fork(F action)
 {
   std::cout << "forking" << std::endl;
   segment *seg = new segment(current_);
   std::cout << "seg: " << seg << std::endl;
-  revision *r = new revision(current_, seg);
+  revision_impl *r = new revision_impl(current_, seg);
 
   current_->release();
   current_ = new segment(current_);
-  r->thread_ = new std::thread(std::bind([](revision *rr, F aa){
-      revision *previous = current_revision;
+  r->thread_ = new std::thread(std::bind([](revision_impl *rr, F aa){
+      revision_impl *previous = current_revision;
       current_revision = rr;
       try {
         aa();
@@ -240,7 +248,7 @@ inline revision *revision::fork(F action)
   return r;
 }
 
-inline void revision::join(revision *r)
+inline void revision_impl::join(revision_impl *r)
 {
   try {
     r->thread_->join();
@@ -261,24 +269,37 @@ inline void revision::join(revision *r)
   current_->collapse(*this);
 }
 
+class revision {
+public:
+  revision(revision_impl *impl)
+    : impl_(impl) {}
+
+  revision_impl *ptr() {
+    return impl_.get();
+  }
+
+private:
+  std::shared_ptr<revision_impl> impl_;
+};
+
 //-----
 
 template <typename F>
-inline revision *fork(F action)
+inline revision fork(F action)
 {
-  if (!revision::current_revision) {
+  if (!revision_impl::current_revision) {
     segment *root_segment = new segment(NULL);
 
-    revision::current_revision = new revision(root_segment, root_segment);
+    revision_impl::current_revision = new revision_impl(root_segment, root_segment);
   }
 
-  return revision::current_revision->fork(action);
+  return revision(revision_impl::current_revision->fork(action));
 }
 
-inline void join(revision *r)
+inline void join(revision r)
 {
   puts("joiN!!!!!!!!!!!!");
-  revision::current_revision->join(r);
+  revision_impl::current_revision->join(r.ptr());
 }
 
 } // concurrent_revisions
