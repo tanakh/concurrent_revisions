@@ -210,12 +210,10 @@ inline void versioned_val<T, Merge>::collapse(revision_impl &main, segment &pare
 template <class T, class Merge>
 inline void versioned_val<T, Merge>::merge(revision_impl &main, revision_impl &join_rev, segment &join)
 {
-  puts("merge now!!!");
   segment *s = join_rev.current_;
   while(!versions_.has(s->version_))
     s = s->parent_;
   if (s == &join) {
-    std::cout << "merging " << versions_.get(join.version_) << std::endl;
     //set(main, versions_.get(join.version_));
     set(main, mf_(get(), versions_.get(join.version_), versions_.get(join_rev.root_->version_)));
   }
@@ -261,9 +259,9 @@ inline revision_impl::revision_impl(segment *root, segment *current)
 template <class F>
 inline revision_impl *revision_impl::fork(F action)
 {
-  std::cout << "forking" << std::endl;
+  // std::cout << "forking" << std::endl;
   segment *seg = new segment(current_);
-  std::cout << "seg: " << seg << std::endl;
+  // std::cout << "seg: " << seg << std::endl;
   revision_impl *r = new revision_impl(current_, seg);
 
   current_->release();
@@ -285,16 +283,14 @@ inline void revision_impl::join(revision_impl *r)
   try {
     r->thread_->join();
     segment *s = r->current_;
-    printf("join time!: %p\n", s);
     while(s != r->root_) {
-      puts("join: merge?");
       
       for (auto p = s->written_.begin(); p != s->written_.end(); ++p)
         (*p)->merge(*this, *r, *s);
       s = s->parent_;
     }
   } catch(const std::exception& e) {
-    std::cout << e.what() <<std::endl;
+    std::cerr << e.what() <<std::endl;
   } catch(...) {
   }
   r->current_->release();
@@ -330,7 +326,6 @@ inline revision fork(F action)
 
 inline void join(revision r)
 {
-  puts("joiN!!!!!!!!!!!!");
   revision_impl::current_revision->join(r.ptr());
 }
 
