@@ -1,9 +1,10 @@
 #pragma once
 
+#include <atomic>
+#include <functional>
+#include <iostream>
 #include <thread>
 #include <vector>
-#include <iostream>
-#include <functional>
 
 #include "concurrent_intmap.h"
 
@@ -29,10 +30,6 @@ public:
 template <class T>
 class versioned_val : public detail::versioned_any {
 public:
-  versioned_val() {
-    printf("construct!!! %p\n", this);
-  }
-
   const T &get() const;
   void set(const T &v);
 
@@ -41,7 +38,6 @@ public:
   void merge(revision &main, revision &join_rev, segment &join);
 
   std::shared_ptr<detail::versioned_any> ptr() {
-    std::cout << "NULL? " << this->q_.get() << std::endl;
     return q_;
   }
 
@@ -65,13 +61,30 @@ public:
     p_->q_ = p_;
   }
 
-  versioned &operator=(const T &v) {
+  template <class U>
+  versioned &operator=(const versioned<U> &r) {
+    p_->set((U)r);
+    return *this;
+  }
+
+  template <class U>
+  versioned &operator=(versioned<U> &r) {
+    p_->set((U)r);
+    return *this;
+  }
+
+  template <class U>
+  versioned &operator=(const U &v) {
     p_->set(v);
     return *this;
   }
 
   operator const T&() const {
     return p_->get();
+  }
+
+  void dump() {
+    p_->dump();
   }
   
   std::shared_ptr<versioned_val<T> > p_;
@@ -85,11 +98,11 @@ public:
   void collapse(revision &main);
 
   //private:
-  int version_;
-  int refcount_;
+  std::atomic_int version_;
+  std::atomic_int refcount_;
   segment *parent_;
   std::vector<std::shared_ptr<detail::versioned_any> > written_;
-  static int version_count_;
+  static std::atomic_int version_count_;
 };
 
 class revision {
@@ -127,10 +140,8 @@ template <class T>
 inline const T &versioned_val<T>::get(revision &r) const
 {
   segment *s = r.current_;
-  printf("get! %p\n", s);
   while(!versions_.has(s->version_)) {
     s = s->parent_;
-    printf(" %p\n", s);
   }
   return versions_.get(s->version_);
 }
@@ -160,11 +171,14 @@ inline void versioned_val<T>::collapse(revision &main, segment &parent)
 template <class T>
 inline void versioned_val<T>::merge(revision &main, revision &join_rev, segment &join)
 {
+  puts("merge now!!!");
   segment *s = join_rev.current_;
   while(!versions_.has(s->version_))
     s = s->parent_;
-  if (s == &join)
+  if (s == &join) {
+    std::cout << "merging " << versions_.get(join.version_) << std::endl;
     set(main, versions_.get(join.version_));
+  }
 }
 
 //-----
@@ -212,23 +226,12 @@ inline revision *revision::fork(F action)
   std::cout << "seg: " << seg << std::endl;
   revision *r = new revision(current_, seg);
 
-  std::cout << "0* " << r << std::endl;
-  std::cout << "0+ " << r->current_ << std::endl;
-  std::cout << "0- " << r->root_ << std::endl;
-
   current_->release();
   current_ = new segment(current_);
-  thread_ = new std::thread(std::bind([](revision *rr, F aa){
+  r->thread_ = new std::thread(std::bind([](revision *rr, F aa){
       revision *previous = current_revision;
       current_revision = rr;
-      std::cout << "* " << current_revision << std::endl;
-      std::cout << "+ " << current_revision->current_ << std::endl;
-      std::cout << "- " << current_revision->root_ << std::endl;
       try {
-        std::cout << "* " << current_revision << std::endl;
-        std::cout << "+ " << current_revision->current_ << std::endl;
-        std::cout << "- " << current_revision->root_ << std::endl;
-
         aa();
       } catch(...) {
       }
@@ -240,13 +243,18 @@ inline revision *revision::fork(F action)
 inline void revision::join(revision *r)
 {
   try {
-    thread_->join();
+    r->thread_->join();
     segment *s = r->current_;
+    printf("join time!: %p\n", s);
     while(s != r->root_) {
+      puts("join: merge?");
+      
       for (auto p = s->written_.begin(); p != s->written_.end(); ++p)
         (*p)->merge(*this, *r, *s);
       s = s->parent_;
     }
+  } catch(const std::exception& e) {
+    std::cout << e.what() <<std::endl;
   } catch(...) {
   }
   r->current_->release();
@@ -269,6 +277,7 @@ inline revision *fork(F action)
 
 inline void join(revision *r)
 {
+  puts("joiN!!!!!!!!!!!!");
   revision::current_revision->join(r);
 }
 
