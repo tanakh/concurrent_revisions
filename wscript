@@ -11,6 +11,7 @@ def options(opt):
 def configure(conf):
   conf.load('compiler_cxx')
   conf.load('unittest_gtest')
+  conf.check_cxx(lib = 'pthread')
 
   if conf.env.CXX == ['clang++']:
     conf.env.append_unique(
@@ -25,7 +26,7 @@ def configure(conf):
   else:
     conf.env.append_unique(
       'CXXFLAGS',
-      ['-std=c++0x', '-Wall', '-O0', '-g']
+      ['-std=c++0x', '-Wall', '-O2', '-g']
       )
     conf.env.append_unique(
       'LINKFLAGS',
@@ -36,7 +37,8 @@ def build(bld):
   bld.shlib(
     source = 'concurrent_revisions.cpp',
     includes = '.',
-    target = 'concurrent_revisions'
+    target = 'concurrent_revisions',
+    use = 'PTHREAD'
     )
 
   bld.program(
@@ -44,5 +46,12 @@ def build(bld):
     source = 'test.cpp',
     includes = '.',
     target = 'test',
+    use = 'concurrent_revisions'
+    )
+
+  bld.program(
+    source = 'bench.cpp',
+    includes = '.',
+    target = 'parallel_sum_bench',
     use = 'concurrent_revisions'
     )
