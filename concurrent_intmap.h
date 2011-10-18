@@ -20,7 +20,21 @@ public:
 
   void set(int ix, const V &v) {
     std::lock_guard<std::mutex> lk(m_);
-    dat_.insert(make_pair(ix, v));
+    auto pib = dat_.insert(make_pair(ix, v));
+    if (!pib.second) pib.first->second = v;
+  }
+
+  void erase(int ix) {
+    std::lock_guard<std::mutex> lk(m_);
+    dat_.erase(ix);
+  }
+
+  void dump() {
+    std::lock_guard<std::mutex> lk(m_);
+    std::cout << "vvvvv" << std::endl;
+    for(auto p = dat_.begin(); p != dat_.end(); ++p)
+      std::cout << p->first << ": " << p->second << std::endl;
+    std::cout << "^^^^^" << std::endl;
   }
 
 private:
