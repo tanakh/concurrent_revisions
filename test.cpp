@@ -147,7 +147,7 @@ TEST(gtest, determine4)
   EXPECT_EQ(1, y);
 }
 
-TEST(gtest, merge)
+TEST(gtest, merger)
 {
   versioned<int, add_merger<int> > x_add;
   versioned<int, max_merger<int> > y_max;
@@ -171,5 +171,63 @@ TEST(gtest, merge)
   EXPECT_EQ(10, y_max);
   EXPECT_EQ(-10, z_min);
 
+  revision r2 = fork([&] {
+      x_add = x_add + 5;
+      y_max = 10;
+      z_min = -5;
+    });
+
+  join(r2);
+}
+
+TEST(gtest, add_merger)
+{
+  versioned<int, add_merger<int> > x;
+  x = 100;
+
+  revision r2;
   
+  revision r1 = fork([&] {
+      x = x + 2;
+
+      r2 = fork([&] {
+          x = x + 4;
+        });
+
+      x = x + 3;
+    });
+
+  x = x + 1;
+
+  join(r1);
+  join(r2);
+
+  EXPECT_EQ(110, x);
+}
+
+template <class Iterator>
+void parallel_sum(Iterator p, Iterator q, versioned<int, add_merger<int> > &sum)
+{
+  size_t len = q - p;
+  if (len < 1024) {
+    while(p != q) sum = sum + *p++;
+    return;
+  }
+
+  revision r1 = fork([&]{parallel_sum(p, p + len / 2, sum);});
+  revision r2 = fork([&]{parallel_sum(p + len / 2, q, sum);});
+  join(r1);
+  join(r2);
+}
+
+TEST(gtest, parallel_sum)
+{
+  vector<int> dat(10000);
+  for (size_t i=0; i< dat.size(); ++i)
+    dat[i] = i;
+
+  versioned<int, add_merger<int> > sum;
+  parallel_sum(dat.begin(), dat.end(), sum);
+
+  EXPECT_EQ(10000 * 9999 / 2, sum);
 }

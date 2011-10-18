@@ -82,6 +82,7 @@ public:
 
   //private:
   const T &get(revision_impl &r) const;
+  const T &get(segment &r) const;
   void set(revision_impl &r, const T & v);
 
   std::shared_ptr<versioned_val<T, Merge> > q_;
@@ -142,6 +143,7 @@ public:
 class revision_impl {
 public:
   revision_impl(segment *root, segment *current);
+  ~revision_impl();
 
   template <class F>
   revision_impl *fork(F action);
@@ -178,12 +180,20 @@ inline void versioned_val<T, Merge>::set(const T &v)
 template <class T, class Merge>
 inline const T &versioned_val<T, Merge>::get(revision_impl &r) const
 {
-  segment *s = r.current_;
+  return get(*r.current_);
+}
+
+template <class T, class Merge>
+inline const T &versioned_val<T, Merge>::get(segment &r) const
+{
+  segment *s = &r;
   while(!versions_.has(s->version_)) {
     s = s->parent_;
   }
   return versions_.get(s->version_);
 }
+
+
 
 template <class T, class Merge>
 inline void versioned_val<T, Merge>::set(revision_impl &r, const T &v)
@@ -215,7 +225,7 @@ inline void versioned_val<T, Merge>::merge(revision_impl &main, revision_impl &j
     s = s->parent_;
   if (s == &join) {
     //set(main, versions_.get(join.version_));
-    set(main, mf_(get(), versions_.get(join.version_), versions_.get(join_rev.root_->version_)));
+    set(main, mf_(get(), get(join), get(*join_rev.root_)));
   }
 }
 
@@ -253,7 +263,13 @@ inline void segment::collapse(revision_impl &main)
 inline revision_impl::revision_impl(segment *root, segment *current)
   : root_(root)
   , current_(current)
+  , thread_(NULL)
 {
+}
+
+inline revision_impl::~revision_impl()
+{
+  delete thread_;
 }
 
 template <class F>
@@ -282,6 +298,9 @@ inline void revision_impl::join(revision_impl *r)
 {
   try {
     r->thread_->join();
+    delete r->thread_;
+    r->thread_ = NULL;
+
     segment *s = r->current_;
     while(s != r->root_) {
       
@@ -299,8 +318,20 @@ inline void revision_impl::join(revision_impl *r)
 
 class revision {
 public:
+  revision() {}
+
   revision(revision_impl *impl)
     : impl_(impl) {}
+
+  revision &operator=(const revision &r) {
+    impl_ = r.impl_;
+    return *this;
+  }
+
+  revision &operator=(revision &r) {
+    impl_ = r.impl_;
+    return *this;
+  }
 
   revision_impl *ptr() {
     return impl_.get();
