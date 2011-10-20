@@ -5,11 +5,13 @@
 This is a C++ implementation of [Concurrent Revisions][1]
 
 Supported features:
+
 * Versioned variables
 * Cumlative variables
 * fork/join
 
 Future work:
+
 * Fix Memory Leaks
 * Optimize concurrent_int_map
 * Use LWP/LWT
