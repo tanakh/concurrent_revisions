@@ -73,7 +73,7 @@ public:
   void merge(revision_impl &main, revision_impl &join_rev, segment &join);
 
   std::shared_ptr<detail::versioned_any> ptr() {
-    return q_;
+    return q_.lock();
   }
 
   void dump() {
@@ -85,7 +85,7 @@ public:
   const T &get(segment &r) const;
   void set(revision_impl &r, const T & v);
 
-  std::shared_ptr<versioned_val<T, Merge> > q_;
+  std::weak_ptr<versioned_val<T, Merge> > q_;
   concurrent_intmap<T> versions_;
   Merge mf_;
 };
