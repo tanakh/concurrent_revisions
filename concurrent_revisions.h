@@ -80,7 +80,7 @@ public:
     versions_.dump();
   }
 
-  //private:
+private:
   const T &get(revision_impl &r) const;
   const T &get(segment &r) const;
   void set(revision_impl &r, const T & v);
@@ -88,6 +88,8 @@ public:
   std::weak_ptr<versioned_val<T, Merge> > q_;
   concurrent_intmap<T> versions_;
   Merge mf_;
+
+  friend class versioned<T, Merge>;
 };
 
 template <class T, class Merge = default_merger<T> >
