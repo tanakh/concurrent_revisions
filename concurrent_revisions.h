@@ -101,7 +101,7 @@ public:
     p_->set(T());
   }
 
-  versioned &operator=(const versioned<T, Merge> &r) {
+  versioned &operator=(const versioned &r) {
     p_->set((T)r);
     return *this;
   }
