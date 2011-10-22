@@ -94,7 +94,7 @@ template <class T, class Merge = default_merger<T> >
 class versioned {
 public:
   versioned()
-    : p_ (new versioned_val<T, Merge>()) {
+    : p_ (std::make_shared<versioned_val<T, Merge> >()) {
     p_->q_ = p_;
     p_->set(T());
   }
