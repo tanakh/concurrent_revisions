@@ -124,7 +124,7 @@ public:
 
 class segment {
 public:
-  segment(segment *parent);
+  explicit segment(segment *parent);
 
   void release();
   void collapse(revision_impl &main);
