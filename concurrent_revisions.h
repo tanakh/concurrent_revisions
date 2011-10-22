@@ -106,11 +106,6 @@ public:
     return *this;
   }
 
-  versioned &operator=(versioned<T, Merge> &r) {
-    p_->set((T)r);
-    return *this;
-  }
-
   versioned &operator=(const T &v) {
     p_->set(v);
     return *this;
