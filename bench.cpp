@@ -22,7 +22,7 @@ struct __bench__ {
   }
   double sec() {
     struct timeval tv;
-    gettimeofday(&tv, NULL);
+    gettimeofday(&tv, nullptr);
     return tv.tv_sec + tv.tv_usec * 1e-6;
   }
   operator bool() { return false; }

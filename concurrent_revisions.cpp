@@ -4,7 +4,7 @@ namespace concurrent_revisions {
 
 std::atomic_int segment::version_count_;
 
-__thread revision_impl *revision_impl::current_revision = NULL;
+__thread revision_impl *revision_impl::current_revision = nullptr;
 
 class initializer {
 public:

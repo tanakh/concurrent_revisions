@@ -327,7 +327,7 @@ template <typename F>
 inline revision fork(F action)
 {
   if (!revision_impl::current_revision) {
-    segment *root_segment = new segment(NULL);
+    segment *root_segment = new segment(nullptr);
 
     revision_impl::current_revision = new revision_impl(root_segment, root_segment);
   }
