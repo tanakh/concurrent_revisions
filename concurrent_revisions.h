@@ -325,11 +325,6 @@ public:
     return *this;
   }
 
-  revision &operator=(revision &r) {
-    impl_ = r.impl_;
-    return *this;
-  }
-
   revision_impl *ptr() {
     return impl_.get();
   }
