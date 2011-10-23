@@ -320,11 +320,6 @@ public:
   explicit revision(revision_impl *impl)
     : impl_(impl) {}
 
-  revision &operator=(const revision &r) {
-    impl_ = r.impl_;
-    return *this;
-  }
-
   revision_impl *ptr() {
     return impl_.get();
   }
