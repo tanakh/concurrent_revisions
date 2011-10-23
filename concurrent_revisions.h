@@ -317,7 +317,7 @@ class revision {
 public:
   revision() {}
 
-  revision(revision_impl *impl)
+  explicit revision(revision_impl *impl)
     : impl_(impl) {}
 
   revision &operator=(const revision &r) {
