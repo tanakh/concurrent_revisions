@@ -82,6 +82,9 @@ void parallel_fib(int n, versioned<int, add_merger<int> > &sum)
 
 int main(int argc, char *argv[])
 {
+  if (argc <= 1)
+    return 1;
+
   bench("par") {
     versioned<int, add_merger<int> > sum;
     parallel_fib(atoi(argv[1]), sum);
