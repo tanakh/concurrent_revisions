@@ -73,38 +73,35 @@ public:
   void merge(revision_impl &main, revision_impl &join_rev, segment &join);
 
   std::shared_ptr<detail::versioned_any> ptr() {
-    return q_;
+    return q_.lock();
   }
 
   void dump() {
     versions_.dump();
   }
 
-  //private:
+private:
   const T &get(revision_impl &r) const;
   const T &get(segment &r) const;
   void set(revision_impl &r, const T & v);
 
-  std::shared_ptr<versioned_val<T, Merge> > q_;
+  std::weak_ptr<versioned_val<T, Merge> > q_;
   concurrent_intmap<T> versions_;
   Merge mf_;
+
+  friend class versioned<T, Merge>;
 };
 
 template <class T, class Merge = default_merger<T> >
 class versioned {
 public:
   versioned()
-    : p_ (new versioned_val<T, Merge>()) {
+    : p_ (std::make_shared<versioned_val<T, Merge> >()) {
     p_->q_ = p_;
     p_->set(T());
   }
 
-  versioned &operator=(const versioned<T, Merge> &r) {
-    p_->set((T)r);
-    return *this;
-  }
-
-  versioned &operator=(versioned<T, Merge> &r) {
+  versioned &operator=(const versioned &r) {
     p_->set((T)r);
     return *this;
   }
@@ -127,7 +124,7 @@ public:
 
 class segment {
 public:
-  segment(segment *parent);
+  explicit segment(segment *parent);
 
   void release();
   void collapse(revision_impl &main);
@@ -143,7 +140,6 @@ public:
 class revision_impl {
 public:
   revision_impl(segment *root, segment *current);
-  ~revision_impl();
 
   template <class F>
   revision_impl *fork(F action);
@@ -153,7 +149,7 @@ public:
   //private:
   segment *root_;
   segment *current_;
-  std::thread *thread_;
+  std::unique_ptr<std::thread> thread_;
 
   static __thread revision_impl *current_revision;
 };
@@ -263,13 +259,8 @@ inline void segment::collapse(revision_impl &main)
 inline revision_impl::revision_impl(segment *root, segment *current)
   : root_(root)
   , current_(current)
-  , thread_(NULL)
+  , thread_(nullptr)
 {
-}
-
-inline revision_impl::~revision_impl()
-{
-  delete thread_;
 }
 
 template <class F>
@@ -282,7 +273,7 @@ inline revision_impl *revision_impl::fork(F action)
 
   current_->release();
   current_ = new segment(current_);
-  r->thread_ = new std::thread(std::bind([](revision_impl *rr, F aa){
+  r->thread_ = std::unique_ptr<std::thread>(new std::thread(std::bind([](revision_impl *rr, F aa){
       revision_impl *previous = current_revision;
       current_revision = rr;
       try {
@@ -290,7 +281,7 @@ inline revision_impl *revision_impl::fork(F action)
       } catch(...) {
       }
       current_revision = previous;
-      }, r, action));
+      }, r, action)));
   return r;
 }
 
@@ -298,8 +289,7 @@ inline void revision_impl::join(revision_impl *r)
 {
   try {
     r->thread_->join();
-    delete r->thread_;
-    r->thread_ = NULL;
+    r->thread_.reset();
 
     segment *s = r->current_;
     while(s != r->root_) {
@@ -320,18 +310,8 @@ class revision {
 public:
   revision() {}
 
-  revision(revision_impl *impl)
+  explicit revision(revision_impl *impl)
     : impl_(impl) {}
-
-  revision &operator=(const revision &r) {
-    impl_ = r.impl_;
-    return *this;
-  }
-
-  revision &operator=(revision &r) {
-    impl_ = r.impl_;
-    return *this;
-  }
 
   revision_impl *ptr() {
     return impl_.get();
@@ -347,7 +327,7 @@ template <typename F>
 inline revision fork(F action)
 {
   if (!revision_impl::current_revision) {
-    segment *root_segment = new segment(NULL);
+    segment *root_segment = new segment(nullptr);
 
     revision_impl::current_revision = new revision_impl(root_segment, root_segment);
   }
