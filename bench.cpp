@@ -22,7 +22,7 @@ struct __bench__ {
   }
   double sec() {
     struct timeval tv;
-    gettimeofday(&tv, NULL);
+    gettimeofday(&tv, nullptr);
     return tv.tv_sec + tv.tv_usec * 1e-6;
   }
   operator bool() { return false; }
@@ -82,6 +82,9 @@ void parallel_fib(int n, versioned<int, add_merger<int> > &sum)
 
 int main(int argc, char *argv[])
 {
+  if (argc <= 1)
+    return 1;
+
   bench("par") {
     versioned<int, add_merger<int> > sum;
     parallel_fib(atoi(argv[1]), sum);
