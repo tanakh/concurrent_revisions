@@ -1,4 +1,5 @@
 #include "concurrent_revisions.h"
+#include "util.h"
 #include <iostream>
 
 #include <gtest/gtest.h>
@@ -230,4 +231,40 @@ TEST(gtest, parallel_sum)
   parallel_sum(dat.begin(), dat.end(), sum);
 
   EXPECT_EQ(10000 * 9999 / 2, sum);
+}
+
+TEST(gtest, parallel_foreach)
+{
+  vector<int> v(10000, 1);
+  versioned<int, add_merger<int> > sum;
+  parallel_foreach(v.begin(), v.end(), [&](int n){ sum = sum + n; });
+
+  EXPECT_EQ(10000, sum);
+}
+
+TEST(gtest, parallel_transform)
+{
+  vector<int> v(10000);
+  for (size_t i = 0; i < v.size(); ++i)
+    v[i] = i;
+
+  parallel_transform(v.begin(), v.end(), v.begin(), [&](int n){ return n * 2; });
+
+  for (size_t i = 0; i < v.size(); ++i) {
+    EXPECT_EQ((int)i * 2, v[i]);
+  }
+}
+
+TEST(gtest, parallel_transform2)
+{
+  vector<int> v(10000);
+  for (size_t i = 0; i < v.size(); ++i)
+    v[i] = i;
+
+  parallel_transform(v.begin(), v.end(), v.begin(), v.end(), v.begin(), [](int x, int y){ return x + y; });
+
+  for (size_t i = 0; i < v.size(); ++i) {
+    EXPECT_EQ((int)i * 2, v[i]);
+  }
+
 }
