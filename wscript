@@ -34,13 +34,6 @@ def configure(conf):
       )
 
 def build(bld):
-  bld.shlib(
-    source = 'concurrent_revisions.cpp',
-    includes = '.',
-    target = 'concurrent_revisions',
-    use = 'PTHREAD'
-    )
-
   bld.program(
     features = 'gtest',
     source = 'test.cpp',
