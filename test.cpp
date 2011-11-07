@@ -288,3 +288,14 @@ TEST(gtest, parallel_min_element)
   auto it = parallel_min_element(v.begin(), v.end());
   EXPECT_EQ(0, *it);
 }
+
+TEST(gtest, parallel_stable_sort)
+{
+  vector<std::size_t> v(10000);
+  std::iota(v.begin(), v.end(), 0);
+  std::random_shuffle(v.begin(), v.end());
+
+  parallel_stable_sort(v.begin(), v.end());
+  for (std::size_t i = 0; i < v.size(); ++i)
+    EXPECT_EQ(i, v[i]);
+}

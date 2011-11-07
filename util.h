@@ -108,5 +108,23 @@ Iterator parallel_min_element(Iterator first, Iterator last, std::size_t min_par
   return v;
 }
 
-  
+template <class Iterator>
+void parallel_stable_sort(Iterator first, Iterator last, std::size_t min_parallel = 1024)
+{
+  std::size_t len = std::distance(first, last);
+
+  if (len <= min_parallel) {
+    std::stable_sort(first, last);
+  } else {
+    Iterator mid = first + len/2;
+    revision r = fork([&] {
+        parallel_stable_sort(first, mid, min_parallel);
+      });
+    parallel_stable_sort(mid, last, min_parallel);
+    join(r);
+    std::inplace_merge(first, mid, last);
+  }
+}
+
+
 } // namespace concurrent_revisions
