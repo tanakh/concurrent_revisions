@@ -143,7 +143,18 @@ public:
   std::shared_ptr<versioned_val<T, Merge> > p_;
 };
 
-class segment {
+namespace detail_ {
+template <typename = void>
+class segment_ {
+public:
+  static std::atomic_int version_count_;
+};
+
+template <typename T>
+std::atomic_int segment_<T>::version_count_;
+} // namespace detail_
+
+class segment : public detail_::segment_<> {
 public:
   explicit segment(segment *parent);
 
@@ -155,10 +166,20 @@ public:
   std::atomic_int refcount_;
   segment *parent_;
   std::vector<std::shared_ptr<detail::versioned_any> > written_;
-  static std::atomic_int version_count_;
 };
 
-class revision_impl {
+namespace detail_ {
+template <typename = void>
+class revision_impl_ {
+public:
+  static __thread revision_impl* current_revision;
+};
+
+template <typename T>
+__thread revision_impl* revision_impl_<T>::current_revision = nullptr;
+} // namespace detail_
+
+class revision_impl : public detail_::revision_impl_<> {
 public:
   revision_impl(segment *root, segment *current);
 
@@ -171,8 +192,6 @@ public:
   segment *root_;
   segment *current_;
   std::unique_ptr<std::thread> thread_;
-
-  static __thread revision_impl *current_revision;
 };
 
 // implementation
@@ -360,5 +379,26 @@ inline void join(revision r)
 {
   revision_impl::current_revision->join(r.ptr());
 }
+
+namespace detail_ {
+class initializer {
+public:
+  initializer() {
+    revision r = fork([]{});
+    join(r);
+  }
+};
+
+template <typename = void>
+class initializer_holder {
+public:
+  static initializer init;
+};
+
+template <typename T>
+initializer initializer_holder<T>::init;
+
+static initializer& init_ = initializer_holder<>::init;  // hitsuyou?
+}  // namespace detail_
 
 } // concurrent_revisions
