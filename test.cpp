@@ -1,7 +1,8 @@
 #include "concurrent_revisions.h"
 #include "util.h"
 #include <iostream>
-
+#include <deque>
+#include <vector>
 #include <gtest/gtest.h>
 
 using namespace std;
@@ -298,4 +299,20 @@ TEST(gtest, parallel_stable_sort)
   parallel_stable_sort(v.begin(), v.end());
   for (std::size_t i = 0; i < v.size(); ++i)
     EXPECT_EQ(i, v[i]);
+}
+
+TEST(gtest, parallel_swap_ranges)
+{
+  vector<std::size_t> v(10000);
+  iota(v.begin(), v.end(), 0);
+
+  deque<std::size_t> d(10000, 1);
+
+  parallel_swap_ranges(v.begin(), v.end(), d.begin());
+
+  for (std::size_t i = 0; i < v.size(); ++i)
+    EXPECT_EQ(1U, v[i]);
+
+  for (std::size_t i = 0; i < d.size(); ++i)
+    EXPECT_EQ(i, d[i]);
 }

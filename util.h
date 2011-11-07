@@ -132,5 +132,23 @@ void parallel_stable_sort(Iterator first, Iterator last, std::size_t min_paralle
   parallel_stable_sort(first, last, std::less<typename std::iterator_traits<Iterator>::value_type>(), min_parallel);
 }
 
+template <class Iterator1, class Iterator2>
+void parallel_swap_ranges(Iterator1 first1, Iterator1 last1, Iterator2 first2, std::size_t min_parallel = 1024)
+{
+  std::size_t len = std::distance(first1, last1);
+
+  if (len <= min_parallel) {
+    std::swap_ranges(first1, last1, first2);
+  } else {
+    auto mid1 = first1 + len/2;
+    auto mid2 = first2 + len/2;
+
+    revision r = fork([&] {
+        parallel_swap_ranges(first1, mid1, first2, min_parallel);
+      });
+    parallel_swap_ranges(mid1, last1, mid2, min_parallel);
+    join(r);
+  }
+}
 
 } // namespace concurrent_revisions
