@@ -398,7 +398,7 @@ public:
 template <typename T>
 initializer initializer_holder<T>::init;
 
-static initializer& init_ = initializer_holder<>::init;  // hitsuyou?
+initializer& init_ = initializer_holder<>::init;  // hitsuyou?
 }  // namespace detail_
 
 } // concurrent_revisions
