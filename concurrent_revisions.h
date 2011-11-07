@@ -46,6 +46,27 @@ public:
   }
 };
 
+template <class Iterator>
+class max_iter_merger {
+public:
+  Iterator operator()(Iterator main, Iterator join, Iterator root) const {
+    if (*main < *join)
+      return join;
+    else
+      return main;
+  }
+};
+
+template <class Iterator>
+class min_iter_merger {
+public:
+  Iterator operator()(Iterator main, Iterator join, Iterator root) const {
+    if (*main < *join)
+      return main;
+    else
+      return join;
+  }
+};
 
 namespace detail {
 

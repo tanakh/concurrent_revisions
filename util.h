@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <iterator>
 #include "concurrent_revisions.h"
 
 namespace concurrent_revisions {
@@ -59,5 +60,28 @@ void parallel_transform(InputIterator1 begin1, InputIterator1 end1, InputIterato
   }
 }
 
+template <class Iterator>
+void parallel_max_element_impl(Iterator first, Iterator last, versioned<Iterator, max_iter_merger<Iterator> >& v, std::size_t min_parallel)
+{
+  std::size_t len = std::distance(first, last);
+
+  if (len <= min_parallel) {
+    v = std::max_element(first, last);
+  } else {
+    revision r = fork([&] {
+        parallel_max_element_impl(first, first + len/2, v, min_parallel);
+      });
+    parallel_max_element_impl(first + len/2, last, v, min_parallel);
+    join(r);
+  }
+}
+
+template <class Iterator>
+Iterator parallel_max_element(Iterator first, Iterator last, std::size_t min_parallel = 1024)
+{
+  versioned<Iterator, max_iter_merger<Iterator> > v;
+  parallel_max_element_impl(first, last, v, min_parallel);
+  return v;
+}
   
 } // namespace concurrent_revisions

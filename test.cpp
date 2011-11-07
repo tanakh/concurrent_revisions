@@ -268,3 +268,13 @@ TEST(gtest, parallel_transform2)
   }
 
 }
+
+TEST(gtest, parallel_max_element)
+{
+  vector<int> v(10000);
+  std::iota(v.begin(), v.end(), 0);
+  std::random_shuffle(v.begin(), v.end());
+
+  auto it = parallel_max_element(v.begin(), v.end());
+  EXPECT_EQ(int(v.size()-1), *it);
+}
